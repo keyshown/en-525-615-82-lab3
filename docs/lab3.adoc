@@ -1,0 +1,242 @@
+:toc:
+:toclevels: 5
+:sectnums:
+:sectnumlevels: 5
+:icons: font
+:imagesdir: images
+:source-highlighter: highlight.js
+
+
+= EN.525.615 - Module 3 Lab Assignment
+
+WARNING:  This is the first revision of this lab. There may be _some_ bugs. Ask questions as needed in the `Lab 3 Discussion` area.
+
+== Accept the GitHub Classroom Assignment link
+
+The GitHub Classroom Assignment for this Lab can be found here: https://classroom.github.com/a/thGwG0ie
+
+== Overview
+
+The objective for the next two labs will be to create a full-featured alarm clock. This will exercise your C programming skills, and also your familiarity with the WB55 development board and its peripherals such as timers and serial interfaces.
+
+In this lab, you will be writing most of the core time-keeping code in addition to interfacing with simple GPIO like a keypad matrix, push buttons, and LEDs, while also outputting feedback to the user via the UART interface. The second lab will expand on this by switching from the relatively simple UART interface to  an LCD for displaying time and a DAC/Speaker combo for the alarm buzzing.
+
+IMPORTANT: The two most important documents to reference during this lab will be the Nucleo-WB55 User Manual (UM2435) and the Reference Manual for the STM32WB microprocessor (RM0434). These documents are essential for understanding how to interface to the board and how to use the peripherals in the STM32. Learning how to read documents like these effectively is essential because even though there is a ton of information online, there is no guarantee that it will work for your particular microprocessor. They are all slightly different (even within the same family). In short: RTFM - Read the friendly manual.
+
+=== Requirements
+
+Let's first talk about what features of an alarm clock you will be implementing.
+
+Your alarm clock shall:
+
+* Keep time accurately to the second
+* Keep track of the date
+** Accurately know the number of days in each month
+** Accurately track the day of the week
+** Properly calculate leap years and number of days in February
+* Display the current time and date to the user (24-hour "Military" style)
+** With the UART - *For this lab*
+** With the LCD - *For Lab 4*
+* Be settable by the user
+** Keypad to enter numerical settings like time/day/year
+** A push button for "snoozing" - Meaning a way to temporarily delay the alarm after it has gone off
+** A push button for acknowledging the alarm
+* Be programmable with *at least* two separate alarm times
+* Have a way to alarm the user
+** Visibly - With a blinking LED - *For this lab*
+** Aurally - With a loud buzzing sound from a speaker - *For Lab 4*
+
+There is some leeway on how exactly you implement these features. This is a common task in engineering, you are given a list of requirements and you must figure out the best way to put them into practice. This lab assignment will lay out some example design patterns but ultimately it is up to you to implement these features. Feel free to start discussions in the forum to discuss this with other students and the instructors. 
+
+TIP: Optionally, you can add whatever *additional* features you like to this. If you implement features above and beyond this baseline we will add extra credit equivalent to the effort/creativity put in to them. You can not get over 100, but what the extra credit will do is allow you lose points in some other areas and still make it possible to get a perfect score. The maximum extra points available is *10 points*, so one full letter grade. To get this max amount the features added must be exceptional.
+
+Some easy examples: make the clock capable of switching between 24 hour and 12 hour formats, or instead of blinking the LED on/off make it fade in and out smoothly using pulse width modulation. Be creative!
+
+== Hardware Setup
+
+=== Parts list
+
+You parts kit contains many things, but for this lab we will be using only a small subset so try not to feel overwhelmed.
+
+Here are the required parts that you will need from your kit for this lab:
+
+* Nucleo WB55 Development Board (NOTE: you do not need the smaller USB dongle at this point)
+* Keypad Matrix
+* Push Buttons
+* LEDs
+* Jumper wires
+* Breadboard
+* Resistors
+
+=== Hardware Assembly and Setup
+
+You will be using a breadboard to hook up everything in this lab. These are extremely useful since you can easily hook components up without having to solder anything, making it simple to quickly prototype circuits. They do have downsides though that you must be aware of. The connections can become loose since the component leads are held in by spring force alone which can weaken over time. Also, the connections have relatively high parasitic resistance and capacitance which means high speed signals can be degraded, which limits the types of components you can plug into the breadboard. For the purposes of this class, they will work well, just be aware of these issues if you have weird problems, since sometimes a fix is as easy as moving a component a few rows down on the breadboard.
+
+Here is an image of a breadboard (your breadboard may look slightly different but the ones in your kit function the same way):
+
+image::lab3-bread.jpeg[width=75%,align=center]
+
+They are made up of grids of 100 mil holes that are connected together in two separate ways: terminal strips and bus strips. Usually they have a gap down the middle to accommodate a standard PDIP package chip. In the above image, terminal strips are marked with blue and bus strips are marked green. Each hole along the drawn lines are connected to each other, this makes daisy chaining things together very easy. The bus strips span either all or large portions of the breadboard and are typically used for power and ground connections.
+
+Use the included jumpers to connect from the proper pins on the Nucleo development board to breadboard (including power and ground) and then build up the rest of your circuit directly on the breadboard. For this lab, this includes LEDs, the keypad, and push buttons.
+
+TIP: Feel free to utilize the push buttons on the development board itself, but you must use at least one external push button in your design.
+
+==== Hardware setup of Buttons, Keypad, and LEDs
+
+Basic GPIO on a micro controller is split into two categories: inputs and outputs. You typically configure this when you set up the device configuration, meaning you pick what pins to use and what direction they are expecting (More on the software configuration side of this later). Changing the direction of a pin at runtime after initial configuration is possible, but for most cases it is not needed (but see https://en.wikipedia.org/wiki/Charlieplexing[Charlieplexing] for an interesting use case). It's your job as an engineer to figure out what pins are best used for your design. In this case, the UM2435 reference manual is essential for determining pin selection; it contains tables of pins and their capable functions.
+
+It helps to make a table outlining all the pins and functions that you need with a mapping to what physical pin it is connected to. This combined with a schematic is required for the lab report.
+
+Once you figure out what pins to use, you have to hook everything up. Here is a schematic showing the simplest implementations for an LED output and a switch input:
+
+image::lab3-circuit.png[width=75%,align=center]
+
+On the left is a circuit for lighting up an LED. The resistor is required to set the current going through the LED so you do not damage it. Think about how you would use Ohm's Law to calculate the value of the resistor.
+
+On the right is a simple switch circuit. Notice that when the button is pressed the input is grounded. In this configuration the resistor is acting as a weak pull-up.  This is what is known as an "Active Low" input configuration. When the button is not being pressed the GPIO pin is connected to the power rail and when the button is pressed the GPIO pin is shorted to ground.  The logic in your software must know that a '0' corresponds to the pressed state of the button. You can reconfigure this to to an "Active High" configuration by moving around the placement of the resistor the connection to the GPIO Pin; use whatever works best for your design.
+
+*You must handle debouncing in your system.* When a switch closes it causes the input to rapidly switch back and forth between the '0' and '1' states as the switch physically bounces open and closed. You can handle this in hardware with a low pass filter (hint: there are capacitors in your kit) or in software by using a timer to wait until a switch has settled to sample its value. Software techniques are preferred because they are "free", capacitors cost money, take up space, and can fail.
+
+This is what bounce looks like on an oscilloscope:
+
+image::lab3-bounce.png[width=75%,align=center]
+
+Additionally, you will use the matrix keypad which is a grid of switches that are connected into rows and columns to ultimately reduce the amount of GPIO required for a given number of switches. Instead of hooking to individual switches, you hook a GPIO output to each row and a GPIO input to each column. The tradeoff is increased software complexity and decreased hardware complexity (see a trend...).
+
+More on the theory of driving a matrix keypad later.
+
+== Lab Setup
+
+Since this is an actually hardware project you must create a new project using the "New STM32 Project" option. This will bring up a target selector, which you will then have to find the Nucleo-WB55 in. Make sure you use the board selector tab and not any of the other options. See figure:
+
+image::lab3-target.png[width=75%,align=center]
+
+Once you select the correct board you will see the familiar new project screen where you can enter the name of the project and enable the STM32Cube project option. This will make the project use the Device Configuration Tool.
+
+=== Using the Device Configuration Tool
+
+After you create the project you will be asked if you want to go to the device configuration tool, do this. In this dialogue, you can set up all the peripherals and pins for your device. Once you do this, you can then use it to generate code to initialize the peripherals. You can always come back and change settings later which the tool will then helpfully regenerate all the peripheral code for you.
+
+NOTE: When you (re)generate code, it can possibly overwrite code you have already written if it conflicts with the generated code. You can ensure this does not happen by making sure you *only* put code in the blocks marked for user code.
+
+Here is an example of this in a typical generated main.c:
+
+[source,c]
+----
+  /* USER CODE BEGIN 1 */
+
+  my_other_awesome_function(); // Will NOT get deleted
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+  my_bad_function(); // Will DEFINITELY get deleted
+
+  /* USER CODE BEGIN Init */
+
+  my_other_awesome_function(); // Will NOT get deleted
+
+  /* USER CODE END Init */
+----
+
+image::lab3-devicecon.png[width=95%,align=center]
+
+This screen shot shows the device configuration tool. On the left is a list of peripherals that you can click through to configure. In this example I clicked on the USART1 (which is how you configure the serial UART for communicating to your PC), which displays the options for this peripheral in the center column. I have set Word Length to 8 bits as an example.
+
+On the right is a representation of the chip. Here you can see what pins you have currently configured, and which ones are available. This is new project so many of my pins are unconfigured. The pins can be clicked on directly in this panel and set according to what you need.
+
+NOTE: A nifty feature of this tool is you can set custom names for the pins (this option is called "User Label" and is in the GPIO settings). This can give you memorable names to refer to the pins in your code, making your code more readable.
+
+=== Time Keeping
+
+You will need to keep global state in this project to keep track of the time and date. A good way to do this is with a struct that has members like time, month, day, etc and update them according to certain rules (like once 60 seconds has passed increment the minute member, etc).
+
+Another way is to do to this is with UNIX epoch time. Instead of storing a lot of discrete components of time, you keep a single number: an integer that counts the number of seconds from some epoch (in Linux systems this is January 1st, 1970. This simplifies storage and updating (since all you ever do is increment the seconds value), but moves the complexity to representing it to the user. You would have to implement a function that takes an epoch time and converts it to something human readable (although there is plenty of code out there you could use as an example...).
+
+With either of these methods, think about the potential tradeoffs for each and talk about it in your lab report. Also, what happens in 2038?
+
+Usage of the hardware timers in the STM32 will be very useful here (although the software timers implemented in FreeRTOS can do the job as well). See the sections on timers in the RM0434 document. Each timer has it's own section so be sure to review all the timers in order to decide which one is best for your particular use case since they range from advanced timers that have a huge amount of functionality to very simple timers, each with their own available types of interrupts.
+
+Timer interrupts are a good way to update the time in either of these cases. To keep accurate time though you will have to ensure that the interrupts do not get preempted, so make sure your interrupt handlers do not do too much computation.
+
+=== User Configuration
+
+An important part of this lab is being able to do things like set the time, set an alarm, change the date, etc. One way to go about this is to use a state machine to control how the user interacts with the clock. Having states for things like the clock running normally, configuration modes, alarming mode, snoozing mode, and possibly others will make it easier to deal with the complexity of this lab.
+
+If you do this make sure to make a state diagram and include it in your report.
+
+=== UART Interfacing
+
+Enabling the UART is relatively simple, when in the device configuration mode just enable the UART peripheral and ensure that there are sane settings for the config parameters. This includes 8 data bits, no parity, 1 start bit, 1 stop bit, and a reasonable baud rate (usually 115200 baud, but there are other common rates between 300 and 256000). In practice you can go faster than this but you start running into issues above 1 megabit/s and other interfaces are better suited for the job at that point.
+
+If you choose to initialize peripherals to default when creating the project then the UART should already be using the correct pins on the micro controller. You can check this yourself though by looking at the user manual and tracing which pins go to the USB/UART interface to the computer. There are stand alone devices that can do this (common ones are made by FTDI and Cypress), so if you had one of these you would need to pick alternate pins and hook it up accordingly.
+
+Actually using the UART is straightforward as well. You can use the HAL driver for the UART. This gives you access to functions for sending and receiving bytes over the line in addition to some more sophisticated functions. These are still "low-level" though, so if you would like to use the `printf()` function that we know and love you will need to tell printf in the standard library how to talk to the UART. This involves defining the `_write()` function to use one the low level functions like `HAL_UART_Transmit()`. How to do this is linked in the references.
+
+How you format the information being displayed via UART is up to you as long as you display the minimum amount of information. This includes:
+
+* Current Time
+* Current Date
+* Is an Alarm Set?
+* Alarm notification when it goes off
+* A way to see what the alarm is set to
+
+All this info doesn't need to be displayed at once, but there does have to be a way to cycle through it.
+
+TIP: Use pretty print formatting with printf (or write your own function to do this!), and understand the difference between carriage returns and line feeds to make something that looks good.
+
+=== GPIO Interfacing
+
+See lab 2 for help with interfacing to the GPIO peripheral.
+
+=== Matrix Keypad
+
+A button matrix is an important part of optimizing embedded system designs, because it reduces the number of pins required to interface to an arbitrary number of buttons.
+
+Think of a standard computer keyboard: they typically have 101 keys and if each one of those keys needed a distinct GPIO input on a micro controller then a high pin-count micro controller is needed. These are expensive, and keyboards are made very cheap so a button matrix is used.
+
+So how do they work?
+
+==== Button Matrix Theory
+
+Here is an image of a keypad matrix similar to the one in the lab kit and the corresponding schematic for it:
+
+image::lab3-matrix.png[width=75%,align=center]
+
+Instead of each button getting it's own GPIO line, the buttons are laid out in a grid where multiple buttons share the same input and output pins.
+
+You as a developer must "scan" the rows and columns in order to properly read out the matrix. As mentioned earlier you will pick either the rows or the columns to be outputs and the opposite as inputs. For the rest of this explanation I am choosing the columns to be my outputs and the rows to be my inputs.
+
+A scan involves energizing each individual column sequentially and reading out the rows at each step. For example if column 2 is energized and you see that Row 4 is "on" then you know that SW8 (in the schematic) or the number 0 (in the image of the keypad) is being pressed.
+
+There are a few implementation details that you will have to work out on your own. For instance: when will you scan the keypad? You can periodically scan the keypad using a timer interrupt, or you can try using pin interrupts and only scan when you need to. A poor implementation of this can hog all your processor time, and you don't want to miss that time keeping interrupt!
+
+Other considerations include key ghosting and bounce. This is when it is ambiguous as to what key was pressed due to multiple keys being pressed at the same time. This can be solved in hardware using diodes to prevent signals from shorting together but these cost money (and are not included in your kit). Also, since these are normal buttons, debounce must also be accounted for.
+
+Without the diodes, mashing multiple buttons you will short out the several of the output pins (look at the schematic and make sure you understand why that is). This is safe on the STM32 chips since the output pins are current limited, but this might not always be the case so be careful when working with other devices.
+
+These are very common devices with a large amount of great info written about them already. For a more in-depth explanation there is a link in the references, but there are many more out there that are easily found with a quick search.
+
+=== FreeRTOS usage
+
+FreeRTOS usage is allowed but optional. This is a pretty good application for it (keeping time is definitely a real-time class of problem) but it will be harder to implement so try not to get trapped with a design at the last second that doesn't work and needs to be rewritten from scratch.
+
+<<<
+
+== References
+
+1. More on keypad matrix theory with some great animations http://pcbheaven.com/wikipages/How_Key_Matrices_Works/[here]
+
+2. User manual for the Nucleo-WB55 containing useful information on how to interface to the board itself: https://www.st.com/resource/en/user_manual/dm00517423-bluetooth-low-energy-and-802154-nucleo-pack-based-on-stm32wb-series-microcontrollers-stmicroelectronics.pdf[UM2435]
+
+3. Reference manual for the WB55 containing in depth information about how to program the chip including it's peripherals https://www.st.com/content/ccc/resource/technical/document/reference_manual/group0/83/cf/94/7a/35/a9/43/58/DM00318631/files/DM00318631.pdf/jcr:content/translations/en.DM00318631.pdf[RM0434]
+
+4. Always make use of example code when you can (just make sure to attribute it in your lab report). The full suite of official WB55 code, including drivers and example code, can be found https://github.com/STMicroelectronics/STM32CubeWB/[here]
+
+5. How to use `printf()` with stm32 outlined https://shawnhymel.com/1873/how-to-use-printf-on-stm32/[here]
+
+6. Basic timer explanation (but do NOT neglect to read the actual documentation in RM0434) https://www.youtube.com/watch?v=DyyYaGU4biY[STM32 Timers]

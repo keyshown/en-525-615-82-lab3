@@ -1,0 +1,7 @@
+# JHU EN-525-615 Lab 3
+
+This repository contains the Lab 3 assignment material for the course.
+
+== Quick Links
+
+* link:docs/lab3.adoc[Lab 3 Assignment]
