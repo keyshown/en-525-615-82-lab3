@@ -2,6 +2,8 @@
 
 This lab is worth 40 points.  Make sure to include the bold questions and your answers to those questions in your report.
 
+> *NOTE:  This is the first time this particular lab has been used.  Please send any errors to the instructor immediately so the text can be corrected.  Thanks*
+
 ## Introduction
 You have been working with the **STM32CubeIDE** editor and debuggers.  All of this has been emulated through QEMU.  Unfortunately, if you check the the xPack website, you'll see that the STM32WB55 board, which is the board that was shipped to you, is not supported.
 
@@ -136,5 +138,57 @@ Take a screenshot of the variables after you have executed all of the instructio
 
 The other tabs in that window are `Breakpoints`, `Expressions`, `Registers`, `Live Expressions`, `Peripherals`, and `SFRs`.  You can see the state of the board while you are debugging.
 
+Close this project and commit your code to your repo.
+
+### Experiment 3
+
+In this experiment, we will interface with one of the switches on the board.  Start a new project called `switch`.  Make sure to initialize the perpherials to their Default mode.
+
+Here is the schematic of the WB55 board again:
+
+![Schematic](images/Nucleo-68_Schematic.png)
+
+Locate `SW1`, `SW2`, and `SW3` on the schematic.  Note that `SW1` is actually controlled by two different ports, `GPIOC 4` and `GPIOC 13`.  But you will also note that there are two jumpers associated with `PC4` and `PC13`.  Look through the WB55 User Manual.
+
+**What are these two jumpers and what does this switch do in its Default configuration?**
+
+Let's poll `SW1` in its default configuration and see what happens.  Place a `HAL_GPIO_ReadPin` command in the infinite loop and read that pin into a variable.  Make sure to declare the variable with the correct type.  Debug the program on the board and while you execute that instruction, note the value of the variable.  You may want to put some sort of command/statement after the `HAL_GPIO_ReadPin` command, so that you can see the variable.  The variable gets reset and removed from the Expressions window each time you start the infinite loop over.
+
+**What is the state of the switch when the button is not pressed?**
+
+To correct this, let's set the state of the pin.  We'll do this one of two ways.  First, we'll do it through the graphical interface.  Go to the `switch.ioc` view in the IDE.  Make sure to stop debugging, if you haven't already.  In the Pinout Configuration tab, there are several pulldown menus.  Select `System Core > GPIO`.  Here you should see a list of the configured GPIO pins.
+
+![Pinout Configuration](images/Pinout_Config.png)
+
+Select `PC4`.  At the bottom of the window, you'll see a couple of configuration options.  Leave the pin an `INPUT` pin and select `Pull Up` in the `Pull Up/Pull Down`.  Select `Save` (or CTRL-S for Windows/COMMAND-S for Mac).  It will ask if you want to generate code.  Select `Yes` and switch to that perspective.
+
+Look for `MX_GPIO_Init` block of code further down in `main.c`.  Note this code:
+
+```
+  GPIO_InitStruct.Pin = GPIO_PIN_4;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+```
+
+Now the GPIO pin is "pulled up", meaning that it has a logical 1 placed on the pin as default.
+
+You will also note that the code you added early may be gone.  Add the code back in and repeat the experiment.
+
+**Are there two distinct states now?  Which state goes with which action?**
+
+> *NOTE:  I found trying to press the button with my fingers to be . . . challenging.  You might want to keep a pencil or pen handy to press the button.
+
+Close this project and commit your code.
+
+### Experiment 4
+
+Now, using this lab as the foundation, write a program that allows a user to press `SW1` some number of times and then press `SW2`.  When `SW2` is pressed, the BLUE LED light will blink on and off--with a 1 second delay between those states--the same number of times that `SW1` was pressed, up to 10 times maximum.  That is, if the user presses `SW1` more than 10 times, the light only blinks 10 times.  If the user presses `SW1` less than 10 times, then the LED blinks the same number of times the user pressed `SW1`.
+
+Think through the entire problem first before writing code.  Draw a state diagram of the problem and include it in your report.
+
+Save your project and commit the code to your repo once you are done.
 
 ## Report
+
+Write your report in markdown using the same format as the last laboratory.  Commit your report to your repo.  Nothing need be uploaded to Blackboard.  You may find a short video of Experiment 4 useful in showing your work.  A *short* video can be uploaded to the repo.

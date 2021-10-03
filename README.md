@@ -2,6 +2,6 @@
 
 This repository contains the Lab 3 assignment material for the course.
 
-== Quick Links
+## Quick Links
 
-* link:docs/lab3.adoc[Lab 3 Assignment]
+[Lab 3 Assignment](docs/Lab_3.md)
