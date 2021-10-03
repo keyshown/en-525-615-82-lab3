@@ -1,6 +1,6 @@
 # Laboratory 3
 
-This lab is worth 40 points.  Make sure to include the bold questions and your answers to those questions in your report.
+This lab is worth 50 points.  Make sure to include the bold questions and your answers to those questions in your report.
 
 > *NOTE:  This is the first time this particular lab has been used.  Please send any errors to the instructor immediately so the text can be corrected.  Thanks*
 
